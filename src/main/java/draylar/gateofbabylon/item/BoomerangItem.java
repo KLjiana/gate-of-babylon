@@ -5,90 +5,92 @@ import com.google.common.collect.Multimap;
 import draylar.gateofbabylon.api.EnchantmentHandler;
 import draylar.gateofbabylon.entity.BoomerangEntity;
 import draylar.gateofbabylon.registry.GOBEntities;
-import net.minecraft.client.item.TooltipContext;
-import net.minecraft.enchantment.Enchantment;
-import net.minecraft.enchantment.EnchantmentHelper;
-import net.minecraft.enchantment.EnchantmentTarget;
-import net.minecraft.enchantment.Enchantments;
-import net.minecraft.entity.EquipmentSlot;
-import net.minecraft.entity.attribute.EntityAttribute;
-import net.minecraft.entity.attribute.EntityAttributeModifier;
-import net.minecraft.entity.attribute.EntityAttributes;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.ToolItem;
-import net.minecraft.item.ToolMaterial;
-import net.minecraft.text.Text;
-import net.minecraft.util.Hand;
-import net.minecraft.util.TypedActionResult;
-import net.minecraft.util.math.Box;
-import net.minecraft.world.World;
+import net.minecraft.world.item.TooltipFlag;
+import net.minecraft.world.item.enchantment.Enchantment;
+import net.minecraft.world.item.enchantment.EnchantmentHelper;
+import net.minecraft.world.item.enchantment.EnchantmentCategory;
+import net.minecraft.world.item.enchantment.Enchantments;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.ai.attributes.Attribute;
+import net.minecraft.world.entity.ai.attributes.AttributeModifier;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.TieredItem;
+import net.minecraft.world.item.Tier;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResultHolder;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.UUID;
 
-public class BoomerangItem extends ToolItem implements EnchantmentHandler {
+public class BoomerangItem extends TieredItem implements EnchantmentHandler {
 
-    private final ToolMaterial material;
+    private final Tier material;
     private final float attackDamage;
-    private final Multimap<EntityAttribute, EntityAttributeModifier> attributeModifiers;
+    private final Multimap<Attribute, AttributeModifier> attributeModifiers;
 
-    public BoomerangItem(Settings settings, ToolMaterial material) {
+    public BoomerangItem(Item.Properties settings, Tier material) {
         super(material, settings);
         this.material = material;
 
-        this.attackDamage = 3 + material.getAttackDamage();
-        ImmutableMultimap.Builder<EntityAttribute, EntityAttributeModifier> builder = ImmutableMultimap.builder();
-        builder.put(EntityAttributes.GENERIC_ATTACK_DAMAGE, new EntityAttributeModifier(ATTACK_DAMAGE_MODIFIER_ID, "Weapon modifier", (double)this.attackDamage, EntityAttributeModifier.Operation.ADDITION));
+        this.attackDamage = 3 + material.getAttackDamageBonus();
+        ImmutableMultimap.Builder<Attribute, AttributeModifier> builder = ImmutableMultimap.builder();
+        builder.put(Attributes.ATTACK_DAMAGE, new AttributeModifier(UUID.fromString("fa2339c3-5e3e-4c7d-8f7c-0a4f0f7db4f2"), "Weapon modifier", (double)this.attackDamage, AttributeModifier.Operation.ADDITION));
         this.attributeModifiers = builder.build();
     }
 
     @Override
-    public TypedActionResult<ItemStack> use(World world, PlayerEntity user, Hand hand) {
+    public InteractionResultHolder<ItemStack> use(Level world, Player user, InteractionHand hand) {
         // If the user already has a boomerang out, do not allow a new one
-        List<BoomerangEntity> found = new ArrayList<>(world.getEntitiesByClass(
+        List<BoomerangEntity> found = new ArrayList<>(world.getEntitiesOfClass(
                 BoomerangEntity.class,
-                new Box(user.getBlockPos().add(-25, -25, -25), user.getBlockPos().add(25, 25, 25)),
-                boomerang -> boomerang.isAlive() && boomerang.getOwner().isPresent() && boomerang.getOwner().get().equals(user.getUuid())));
+                new AABB(user.blockPosition().offset(-25, -25, -25), user.blockPosition().offset(25, 25, 25)),
+                boomerang -> boomerang.isAlive() && boomerang.getOwner().isPresent() && boomerang.getOwner().get().equals(user.getUUID())));
 
         // Boomerang was found, remove it and stop early.
         if(!found.isEmpty()) {
-            return TypedActionResult.fail(user.getStackInHand(hand));
+            return InteractionResultHolder.fail(user.getItemInHand(hand));
         }
 
-        if(!world.isClient) {
-            BoomerangEntity boomerang = createBoomerang(user.getStackInHand(hand), world);
-            boomerang.setYaw(user.getYaw());
-            boomerang.setPitch(user.getPitch());
-            boomerang.setVelocity(boomerang.getRotationVector());
+        if(!world.isClientSide) {
+            BoomerangEntity boomerang = createBoomerang(user.getItemInHand(hand), world);
+            boomerang.setYRot(user.getYRot());
+            boomerang.setXRot(user.getXRot());
+            boomerang.setDeltaMovement(boomerang.getViewVector(1.0F));
             double y = user.getEyeY() - .2;
             boomerang.setPos(user.getX(), y, user.getZ());
-            boomerang.updateTrackedPosition(user.getX(), y, user.getZ());
-            boomerang.requestTeleport(user.getX(), y, user.getZ());
+            boomerang.setPos(user.getX(), y, user.getZ());
+            boomerang.setPos(user.getX(), y, user.getZ());
             boomerang.setOwner(user);
-            world.spawnEntity(boomerang);
+            world.addFreshEntity(boomerang);
         }
 
-        return TypedActionResult.success(user.getStackInHand(hand));
+        return InteractionResultHolder.success(user.getItemInHand(hand));
     }
 
-    public BoomerangEntity createBoomerang(ItemStack stack, World world) {
-        BoomerangEntity boomerang = new BoomerangEntity(GOBEntities.BOOMERANG, world);
+    public BoomerangEntity createBoomerang(ItemStack stack, Level world) {
+        BoomerangEntity boomerang = new BoomerangEntity(GOBEntities.BOOMERANG.get(), world);
         boomerang.setStack(stack);
         return boomerang;
     }
 
     @Override
-    public void appendTooltip(ItemStack stack, @Nullable World world, List<Text> tooltip, TooltipContext context) {
-        super.appendTooltip(stack, world, tooltip, context);
+    public void appendHoverText(ItemStack stack, @Nullable Level world, List<Component> tooltip, TooltipFlag context) {
+        super.appendHoverText(stack, world, tooltip, context);
 
-        float attackDamage = ((BoomerangItem) stack.getItem()).getMaterial().getAttackDamage() + EnchantmentHelper.getAttackDamage(stack, null);
+        float attackDamage = ((BoomerangItem) stack.getItem()).getMaterial().getAttackDamageBonus() + EnchantmentHelper.getDamageBonus(stack, null);
     }
 
     @Override
-    public Multimap<EntityAttribute, EntityAttributeModifier> getAttributeModifiers(EquipmentSlot slot) {
+    public Multimap<Attribute, AttributeModifier> getDefaultAttributeModifiers(EquipmentSlot slot) {
         if(slot.equals(EquipmentSlot.MAINHAND)) {
             return attributeModifiers;
         } else {
@@ -96,9 +98,13 @@ public class BoomerangItem extends ToolItem implements EnchantmentHandler {
         }
     }
 
+    public Tier getMaterial() {
+        return material;
+    }
+
     @Override
-    public List<EnchantmentTarget> getEnchantmentTypes() {
-        return Collections.singletonList(EnchantmentTarget.WEAPON);
+    public List<EnchantmentCategory> getEnchantmentTypes() {
+        return Collections.singletonList(EnchantmentCategory.WEAPON);
     }
 
     @Override
@@ -106,3 +112,4 @@ public class BoomerangItem extends ToolItem implements EnchantmentHandler {
         return enchantment.equals(Enchantments.PIERCING);
     }
 }
+

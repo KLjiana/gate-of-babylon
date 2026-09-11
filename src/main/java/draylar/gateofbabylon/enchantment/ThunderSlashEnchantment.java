@@ -1,30 +1,31 @@
 package draylar.gateofbabylon.enchantment;
 
-import net.minecraft.entity.EntityType;
-import net.minecraft.entity.LightningEntity;
-import net.minecraft.particle.ParticleTypes;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.LightningBolt;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.Nullable;
 
 public class ThunderSlashEnchantment extends KatanaSlashEnchantment {
     
     public ThunderSlashEnchantment() {
-        super(SoundEvents.ENTITY_LIGHTNING_BOLT_THUNDER, ParticleTypes.CLOUD, (target, source, stack) -> {
-            if (target.getWorld() instanceof ServerWorld) {
-                BlockPos blockPos = target.getBlockPos();
-                if (target.getWorld().isSkyVisible(blockPos)) {
-                    @Nullable LightningEntity lightning = EntityType.LIGHTNING_BOLT.create(target.getWorld());
+        super(SoundEvents.LIGHTNING_BOLT_THUNDER, ParticleTypes.CLOUD, (target, source, stack) -> {
+            if (target.level() instanceof ServerLevel serverLevel) {
+                BlockPos blockPos = target.blockPosition();
+                if (serverLevel.getBrightness(net.minecraft.world.level.LightLayer.SKY, blockPos) > 0) {
+                    @Nullable LightningBolt lightning = EntityType.LIGHTNING_BOLT.create(serverLevel);
                     if(lightning != null) {
-                        lightning.refreshPositionAfterTeleport(Vec3d.ofBottomCenter(blockPos));
-                        lightning.setChanneler(source instanceof ServerPlayerEntity ? (ServerPlayerEntity) source : null);
-                        target.getWorld().spawnEntity(lightning);
+                        lightning.moveTo(Vec3.atBottomCenterOf(blockPos));
+                        lightning.setCause(source instanceof ServerPlayer ? (ServerPlayer) source : null);
+                        serverLevel.addFreshEntity(lightning);
                     }
                 }
             }
         });
     }
 }
+

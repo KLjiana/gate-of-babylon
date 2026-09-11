@@ -1,9 +1,9 @@
 package draylar.gateofbabylon.mixin;
 
 import draylar.gateofbabylon.api.EnchantmentHandler;
-import net.minecraft.enchantment.Enchantment;
-import net.minecraft.enchantment.EnchantmentTarget;
-import net.minecraft.item.ItemStack;
+import net.minecraft.world.item.enchantment.Enchantment;
+import net.minecraft.world.item.enchantment.EnchantmentCategory;
+import net.minecraft.world.item.ItemStack;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -14,10 +14,10 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 @Mixin(Enchantment.class)
 public abstract class EnchantmentMixin {
 
-    @Shadow @Final public EnchantmentTarget target;
+    @Shadow @Final public EnchantmentCategory category;
 
     @Inject(
-            method = "isAcceptableItem",
+            method = "canEnchant",
             at = @At("HEAD"),
             cancellable = true)
     private void checkValidity(ItemStack stack, CallbackInfoReturnable<Boolean> cir) {
@@ -31,7 +31,7 @@ public abstract class EnchantmentMixin {
             }
 
             // Check for type-validity
-            boolean contains = ((EnchantmentHandler) stack.getItem()).getEnchantmentTypes().contains(target);
+            boolean contains = ((EnchantmentHandler) stack.getItem()).getEnchantmentTypes().contains(category);
             boolean itemAccepts = !((EnchantmentHandler) stack.getItem()).isInvalid((Enchantment) (Object) this);
 
             // Only abort-mission early if we deem the stack to be valid for this enchantment.
@@ -42,3 +42,4 @@ public abstract class EnchantmentMixin {
         }
     }
 }
+

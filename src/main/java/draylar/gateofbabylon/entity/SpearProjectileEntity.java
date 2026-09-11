@@ -1,72 +1,65 @@
 package draylar.gateofbabylon.entity;
 
 import draylar.gateofbabylon.registry.GOBEntities;
-import net.fabricmc.api.EnvType;
-import net.fabricmc.api.Environment;
-import net.minecraft.enchantment.EnchantmentHelper;
-import net.minecraft.enchantment.Enchantments;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.EntityType;
-import net.minecraft.entity.LightningEntity;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.damage.DamageSource;
-import net.minecraft.entity.data.DataTracker;
-import net.minecraft.entity.data.TrackedData;
-import net.minecraft.entity.data.TrackedDataHandlerRegistry;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.entity.projectile.PersistentProjectileEntity;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.network.packet.Packet;
-import net.minecraft.network.packet.s2c.play.EntitySpawnS2CPacket;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.sound.SoundEvent;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.util.hit.EntityHitResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.World;
-import org.jetbrains.annotations.Nullable;
+import net.minecraft.core.BlockPos;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.syncher.EntityDataAccessor;
+import net.minecraft.network.syncher.EntityDataSerializers;
+import net.minecraft.network.syncher.SynchedEntityData;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvent;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.LightningBolt;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.entity.projectile.AbstractArrow;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.enchantment.Enchantments;
+import net.minecraft.world.item.enchantment.EnchantmentHelper;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.LightLayer;
+import net.minecraft.world.phys.EntityHitResult;
+import net.minecraft.world.phys.Vec3;
 
-public class SpearProjectileEntity extends PersistentProjectileEntity {
+public class SpearProjectileEntity extends AbstractArrow {
 
-    private static final TrackedData<Byte> LOYALTY = DataTracker.registerData(SpearProjectileEntity.class, TrackedDataHandlerRegistry.BYTE);
-    private static final TrackedData<Boolean> ENCHANTED = DataTracker.registerData(SpearProjectileEntity.class, TrackedDataHandlerRegistry.BOOLEAN);
-    private static final TrackedData<ItemStack> STACK = DataTracker.registerData(SpearProjectileEntity.class, TrackedDataHandlerRegistry.ITEM_STACK);
+    private static final EntityDataAccessor<Byte> LOYALTY = SynchedEntityData.defineId(SpearProjectileEntity.class, EntityDataSerializers.BYTE);
+    private static final EntityDataAccessor<Boolean> ENCHANTED = SynchedEntityData.defineId(SpearProjectileEntity.class, EntityDataSerializers.BOOLEAN);
+    private static final EntityDataAccessor<ItemStack> STACK = SynchedEntityData.defineId(SpearProjectileEntity.class, EntityDataSerializers.ITEM_STACK);
 
     private ItemStack stack = ItemStack.EMPTY;
     private boolean dealtDamage;
     public int returnTimer;
 
-    public SpearProjectileEntity(EntityType<? extends SpearProjectileEntity> entityType, World world) {
-        super(entityType, world);
+    public SpearProjectileEntity(EntityType<SpearProjectileEntity> entityType, Level level) {
+        super(entityType, level);
         this.stack = new ItemStack(Items.TRIDENT);
     }
 
-    public SpearProjectileEntity(World world, LivingEntity owner, ItemStack stack) {
-        super(GOBEntities.SPEAR, owner, world);
+    public SpearProjectileEntity(Level level, LivingEntity owner, ItemStack stack) {
+        super(GOBEntities.SPEAR.get(), owner, level);
         this.stack = stack.copy();
-
-        this.dataTracker.set(LOYALTY, (byte) EnchantmentHelper.getLoyalty(stack));
-        this.dataTracker.set(ENCHANTED, stack.hasGlint());
-        this.dataTracker.set(STACK, stack);
+        this.entityData.set(LOYALTY, (byte) EnchantmentHelper.getLoyalty(stack));
+        this.entityData.set(ENCHANTED, stack.hasFoil());
+        this.entityData.set(STACK, stack.copy());
     }
 
-    @Environment(EnvType.CLIENT)
-    public SpearProjectileEntity(World world, double x, double y, double z) {
-        super(GOBEntities.SPEAR, x, y, z, world);
-        this.updatePosition(x, y, z);
-        this.updateTrackedPosition(x, y, z);
+    public SpearProjectileEntity(Level level, double x, double y, double z) {
+        super(GOBEntities.SPEAR.get(), x, y, z, level);
+        this.setPos(x, y, z);
     }
 
     @Override
-    public void initDataTracker() {
-        super.initDataTracker();
-        this.dataTracker.startTracking(LOYALTY, (byte)0);
-        this.dataTracker.startTracking(ENCHANTED, false);
-        this.dataTracker.startTracking(STACK, ItemStack.EMPTY);
+    protected void defineSynchedData() {
+        super.defineSynchedData();
+        this.entityData.define(LOYALTY, (byte) 0);
+        this.entityData.define(ENCHANTED, false);
+        this.entityData.define(STACK, ItemStack.EMPTY);
     }
 
     @Override
@@ -75,172 +68,125 @@ public class SpearProjectileEntity extends PersistentProjectileEntity {
             this.dealtDamage = true;
         }
 
-        Entity entity = this.getOwner();
-        if ((this.dealtDamage || this.isNoClip()) && entity != null) {
-            int i = (Byte)this.dataTracker.get(LOYALTY);
-            if (i > 0 && !this.isOwnerAlive()) {
-                if (!this.getWorld().isClient && this.pickupType == PersistentProjectileEntity.PickupPermission.ALLOWED) {
-                    this.dropStack(this.asItemStack(), 0.1F);
+        Entity owner = this.getOwner();
+        if ((this.dealtDamage || this.isNoPhysics()) && owner != null) {
+            int loyalty = this.entityData.get(LOYALTY);
+            if (loyalty > 0 && !this.isOwnerAlive()) {
+                if (!this.level().isClientSide && this.pickup == Pickup.ALLOWED) {
+                    this.spawnAtLocation(this.asItemStack(), 0.1F);
                 }
-
-                this.remove(RemovalReason.DISCARDED);
-            } else if (i > 0) {
-                this.setNoClip(true);
-                Vec3d vec3d = new Vec3d(entity.getX() - this.getX(), entity.getEyeY() - this.getY(), entity.getZ() - this.getZ());
-                this.setPos(this.getX(), this.getY() + vec3d.y * 0.015D * (double)i, this.getZ());
-                if (this.getWorld().isClient) {
-                    this.lastRenderY = this.getY();
-                }
-
-                double d = 0.05D * (double)i;
-                this.setVelocity(this.getVelocity().multiply(0.95D).add(vec3d.normalize().multiply(d)));
+                this.discard();
+            } else if (loyalty > 0) {
+                this.setNoPhysics(true);
+                Vec3 difference = new Vec3(owner.getX() - this.getX(), owner.getEyeY() - this.getY(), owner.getZ() - this.getZ());
+                this.setPos(this.getX(), this.getY() + difference.y * 0.015D * loyalty, this.getZ());
+                double speed = 0.05D * loyalty;
+                this.setDeltaMovement(this.getDeltaMovement().scale(0.95D).add(difference.normalize().scale(speed)));
                 if (this.returnTimer == 0) {
-                    this.playSound(SoundEvents.ITEM_TRIDENT_RETURN, 10.0F, 1.0F);
+                    this.playSound(SoundEvents.TRIDENT_RETURN, 10.0F, 1.0F);
                 }
-
                 ++this.returnTimer;
             }
         }
-
         super.tick();
     }
 
     private boolean isOwnerAlive() {
-        Entity entity = this.getOwner();
-        if (entity != null && entity.isAlive()) {
-            return !(entity instanceof ServerPlayerEntity) || !entity.isSpectator();
-        } else {
-            return false;
-        }
+        Entity owner = this.getOwner();
+        return owner != null && owner.isAlive() && (!(owner instanceof ServerPlayer serverPlayer) || !serverPlayer.isSpectator());
     }
 
-    @Override
     public ItemStack asItemStack() {
         return this.stack.copy();
     }
 
-    /**
-     * @return the {@link ItemStack} tracked by this {@link SpearProjectileEntity}
-     */
+    @Override
+    protected ItemStack getPickupItem() {
+        return this.asItemStack();
+    }
+
     public ItemStack getStack() {
-        return getWorld().isClient ? dataTracker.get(STACK) : stack;
+        return this.level().isClientSide ? this.entityData.get(STACK) : this.stack;
     }
 
-    @Environment(EnvType.CLIENT)
     public boolean isEnchanted() {
-        return (Boolean)this.dataTracker.get(ENCHANTED);
+        return this.entityData.get(ENCHANTED);
     }
 
     @Override
-    public EntityHitResult getEntityCollision(Vec3d currentPosition, Vec3d nextPosition) {
-        return this.dealtDamage ? null : super.getEntityCollision(currentPosition, nextPosition);
-    }
-
-    @Override
-    public void onEntityHit(EntityHitResult entityHitResult) {
-        Entity target = entityHitResult.getEntity();
+    protected void onHitEntity(EntityHitResult hitResult) {
+        Entity target = hitResult.getEntity();
         float damage = 8.0F;
-
-        // Calculate damage bonuses for enchantments (Sharpness, Bane, Smite, etc.)
-        if (target instanceof LivingEntity) {
-            LivingEntity livingEntity = (LivingEntity)target;
-            damage += EnchantmentHelper.getAttackDamage(this.stack, livingEntity.getGroup());
+        if (target instanceof LivingEntity livingTarget) {
+            damage += EnchantmentHelper.getDamageBonus(this.stack, livingTarget.getMobType());
         }
 
         Entity spearOwner = this.getOwner();
-        DamageSource damageSource = getDamageSources().trident(this, (spearOwner == null ? this : spearOwner));
         this.dealtDamage = true;
-        SoundEvent hitSound = SoundEvents.ITEM_TRIDENT_HIT;
-        if (target.damage(damageSource, damage)) {
+        DamageSource damageSource = this.damageSources().trident(this, spearOwner == null ? this : spearOwner);
+        SoundEvent hitSound = SoundEvents.TRIDENT_HIT;
+        if (target.hurt(damageSource, damage)) {
             if (target.getType() == EntityType.ENDERMAN) {
                 return;
             }
-
-            if (target instanceof LivingEntity) {
-                LivingEntity livingTarget = (LivingEntity)target;
-                if (spearOwner instanceof LivingEntity) {
-                    EnchantmentHelper.onUserDamaged(livingTarget, spearOwner);
-                    EnchantmentHelper.onTargetDamaged((LivingEntity)spearOwner, livingTarget);
-                }
-
-                this.onHit(livingTarget);
+            if (target instanceof LivingEntity livingTarget && spearOwner instanceof LivingEntity livingOwner) {
+                EnchantmentHelper.doPostHurtEffects(livingTarget, livingOwner);
+                EnchantmentHelper.doPostDamageEffects(livingOwner, livingTarget);
             }
         }
 
-        // apply fire aspect to targets if valid
-        int fireAspectLevel = EnchantmentHelper.getLevel(Enchantments.FIRE_ASPECT, stack);
-        if(fireAspectLevel > 0) {
-            target.setOnFireFor(fireAspectLevel * 4);
+        int fireAspectLevel = EnchantmentHelper.getItemEnchantmentLevel(Enchantments.FIRE_ASPECT, this.stack);
+        if (fireAspectLevel > 0) {
+            target.setSecondsOnFire(fireAspectLevel * 4);
         }
 
-
-        setVelocity(getVelocity().multiply(-0.01D, -0.1D, -0.01D));
+        this.setDeltaMovement(this.getDeltaMovement().multiply(-0.01D, -0.1D, -0.01D));
         float impactVolume = 1.0F;
-
-        // Handle channeling. If the channeling effect summons lighting, we adjust the spear's collision hit sound to the trident thunder SFX.
-        if (getWorld() instanceof ServerWorld && getWorld().isThundering() && EnchantmentHelper.hasChanneling(this.stack)) {
-            BlockPos blockPos = target.getBlockPos();
-            if (getWorld().isSkyVisible(blockPos)) {
-                @Nullable LightningEntity lightning = EntityType.LIGHTNING_BOLT.create(getWorld());
-                if(lightning != null) {
-                    lightning.refreshPositionAfterTeleport(Vec3d.ofBottomCenter(blockPos));
-                    lightning.setChanneler(spearOwner instanceof ServerPlayerEntity ? (ServerPlayerEntity) spearOwner : null);
-                    getWorld().spawnEntity(lightning);
-                    hitSound = SoundEvents.ITEM_TRIDENT_THUNDER;
+        if (this.level() instanceof ServerLevel serverLevel && serverLevel.isThundering()
+                && EnchantmentHelper.hasChanneling(this.stack)) {
+            BlockPos blockPos = target.blockPosition();
+            if (serverLevel.getBrightness(LightLayer.SKY, blockPos) > 0) {
+                LightningBolt lightning = EntityType.LIGHTNING_BOLT.create(serverLevel);
+                if (lightning != null) {
+                    lightning.moveTo(Vec3.atBottomCenterOf(blockPos));
+                    lightning.setCause(spearOwner instanceof ServerPlayer serverPlayer ? serverPlayer : null);
+                    serverLevel.addFreshEntity(lightning);
+                    hitSound = SoundEvents.TRIDENT_THUNDER;
                     impactVolume = 5.0F;
                 }
             }
         }
-
-        playSound(hitSound, impactVolume, 1.0F);
+        this.playSound(hitSound, impactVolume, 1.0F);
     }
 
     @Override
-    public SoundEvent getHitSound() {
-        return SoundEvents.ITEM_TRIDENT_HIT_GROUND;
+    protected SoundEvent getDefaultHitGroundSoundEvent() {
+        return SoundEvents.TRIDENT_HIT_GROUND;
     }
 
     @Override
-    public void onPlayerCollision(PlayerEntity player) {
-        Entity entity = this.getOwner();
-        if (entity == null || entity.getUuid() == player.getUuid()) {
-            super.onPlayerCollision(player);
-        }
-    }
-
-    @Override
-    public void readCustomDataFromNbt(NbtCompound tag) {
-        super.readCustomDataFromNbt(tag);
+    public void readAdditionalSaveData(CompoundTag tag) {
+        super.readAdditionalSaveData(tag);
         if (tag.contains("Stack", 10)) {
-            this.stack = ItemStack.fromNbt(tag.getCompound("Stack"));
+            this.stack = ItemStack.of(tag.getCompound("Stack"));
         }
-
         this.dealtDamage = tag.getBoolean("DealtDamage");
-        this.dataTracker.set(LOYALTY, (byte)EnchantmentHelper.getLoyalty(this.stack));
+        this.entityData.set(LOYALTY, (byte) EnchantmentHelper.getLoyalty(this.stack));
+        this.entityData.set(STACK, this.stack.copy());
     }
 
     @Override
-    public void writeCustomDataToNbt(NbtCompound tag) {
-        super.writeCustomDataToNbt(tag);
-        tag.put("Stack", this.stack.writeNbt(new NbtCompound()));
+    public void addAdditionalSaveData(CompoundTag tag) {
+        super.addAdditionalSaveData(tag);
+        tag.put("Stack", this.stack.save(new CompoundTag()));
         tag.putBoolean("DealtDamage", this.dealtDamage);
     }
 
     @Override
-    public void age() {
-        int i = (Byte)this.dataTracker.get(LOYALTY);
-        if (this.pickupType != PersistentProjectileEntity.PickupPermission.ALLOWED || i <= 0) {
-            super.age();
-        }
-
-    }
-
-    @Override
-    public float getDragInWater() {
+    protected float getWaterInertia() {
         return 0.99F;
     }
 
-    @Environment(EnvType.CLIENT)
     @Override
     public boolean shouldRender(double cameraX, double cameraY, double cameraZ) {
         return true;

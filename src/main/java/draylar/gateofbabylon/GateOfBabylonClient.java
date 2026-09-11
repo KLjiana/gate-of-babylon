@@ -9,57 +9,65 @@ import draylar.gateofbabylon.impl.client.ShieldUsePredicate;
 import draylar.gateofbabylon.item.CustomBowItem;
 import draylar.gateofbabylon.registry.GOBEntities;
 import draylar.gateofbabylon.registry.GOBItems;
-import net.fabricmc.api.ClientModInitializer;
-import net.fabricmc.api.EnvType;
-import net.fabricmc.api.Environment;
-import net.fabricmc.fabric.api.client.model.ModelLoadingRegistry;
-import net.fabricmc.fabric.api.client.rendering.v1.EntityRendererRegistry;
-import net.fabricmc.fabric.api.object.builder.v1.client.model.FabricModelPredicateProviderRegistry;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.util.ModelIdentifier;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.entity.EntityRenderers;
+import net.minecraft.client.renderer.item.ItemProperties;
+import net.minecraft.client.resources.model.ModelResourceLocation;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.client.event.ModelEvent;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 
-@Environment(EnvType.CLIENT)
-public class GateOfBabylonClient implements ClientModInitializer {
+/** Client-only registrations for renderers, item predicates, and additional models. */
+@Mod.EventBusSubscriber(modid = GateOfBabylon.MODID, bus = Mod.EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
+public final class GateOfBabylonClient {
 
-    public static final ModelIdentifier DIAMOND_YOYO_MODEL = new ModelIdentifier(GateOfBabylon.id("world_diamond_yoyo"), "inventory");
-    public static final ModelIdentifier NETHERITE_YOYO_MODEL = new ModelIdentifier(GateOfBabylon.id("world_netherite_yoyo"), "inventory");
-    public static final ModelIdentifier GOLDEN_YOYO_MODEL = new ModelIdentifier(GateOfBabylon.id("world_golden_yoyo"), "inventory");
-    public static final ModelIdentifier IRON_YOYO_MODEL = new ModelIdentifier(GateOfBabylon.id("world_iron_yoyo"), "inventory");
-    public static final ModelIdentifier STONE_YOYO_MODEL = new ModelIdentifier(GateOfBabylon.id("world_stone_yoyo"), "inventory");
-    public static final ModelIdentifier WOODEN_YOYO_MODEL = new ModelIdentifier(GateOfBabylon.id("world_wooden_yoyo"), "inventory");
+    public static final ModelResourceLocation DIAMOND_YOYO_MODEL = new ModelResourceLocation(GateOfBabylon.id("world_diamond_yoyo"), "inventory");
+    public static final ModelResourceLocation NETHERITE_YOYO_MODEL = new ModelResourceLocation(GateOfBabylon.id("world_netherite_yoyo"), "inventory");
+    public static final ModelResourceLocation GOLDEN_YOYO_MODEL = new ModelResourceLocation(GateOfBabylon.id("world_golden_yoyo"), "inventory");
+    public static final ModelResourceLocation IRON_YOYO_MODEL = new ModelResourceLocation(GateOfBabylon.id("world_iron_yoyo"), "inventory");
+    public static final ModelResourceLocation STONE_YOYO_MODEL = new ModelResourceLocation(GateOfBabylon.id("world_stone_yoyo"), "inventory");
+    public static final ModelResourceLocation WOODEN_YOYO_MODEL = new ModelResourceLocation(GateOfBabylon.id("world_wooden_yoyo"), "inventory");
 
-    @Override
-    public void onInitializeClient() {
-        EntityRendererRegistry.register(GOBEntities.SPEAR, dispatcher -> new SpearProjectileEntityRenderer(dispatcher, MinecraftClient.getInstance().getItemRenderer()));
-        EntityRendererRegistry.register(GOBEntities.YOYO, YoyoEntityRenderer::new);
-        EntityRendererRegistry.register(GOBEntities.BOOMERANG, BoomerangEntityRenderer::new);
+    private GateOfBabylonClient() {
+    }
 
-        registerBowPredicates(GOBItems.STONE_BOW);
-        registerBowPredicates(GOBItems.IRON_BOW);
-        registerBowPredicates(GOBItems.GOLDEN_BOW);
-        registerBowPredicates(GOBItems.DIAMOND_BOW);
-        registerBowPredicates(GOBItems.NETHERITE_BOW);
+    @SubscribeEvent
+    public static void onClientSetup(FMLClientSetupEvent event) {
+        event.enqueueWork(() -> {
+            EntityRenderers.register(GOBEntities.SPEAR.get(), context -> new SpearProjectileEntityRenderer(context, Minecraft.getInstance().getItemRenderer()));
+            EntityRenderers.register(GOBEntities.YOYO.get(), YoyoEntityRenderer::new);
+            EntityRenderers.register(GOBEntities.BOOMERANG.get(), BoomerangEntityRenderer::new);
 
-        FabricModelPredicateProviderRegistry.register(GOBItems.STONE_SHIELD, new Identifier("blocking"), new ShieldUsePredicate());
-        FabricModelPredicateProviderRegistry.register(GOBItems.IRON_SHIELD, new Identifier("blocking"), new ShieldUsePredicate());
-        FabricModelPredicateProviderRegistry.register(GOBItems.GOLDEN_SHIELD, new Identifier("blocking"), new ShieldUsePredicate());
-        FabricModelPredicateProviderRegistry.register(GOBItems.DIAMOND_SHIELD, new Identifier("blocking"), new ShieldUsePredicate());
-        FabricModelPredicateProviderRegistry.register(GOBItems.NETHERITE_SHIELD, new Identifier("blocking"), new ShieldUsePredicate());
+            registerBowPredicates(GOBItems.STONE_BOW.get());
+            registerBowPredicates(GOBItems.IRON_BOW.get());
+            registerBowPredicates(GOBItems.GOLDEN_BOW.get());
+            registerBowPredicates(GOBItems.DIAMOND_BOW.get());
+            registerBowPredicates(GOBItems.NETHERITE_BOW.get());
 
-        // register models
-        ModelLoadingRegistry.INSTANCE.registerModelProvider((resourceManager, consumer) -> {
-            consumer.accept(DIAMOND_YOYO_MODEL);
-            consumer.accept(NETHERITE_YOYO_MODEL);
-            consumer.accept(GOLDEN_YOYO_MODEL);
-            consumer.accept(IRON_YOYO_MODEL);
-            consumer.accept(STONE_YOYO_MODEL);
-            consumer.accept(WOODEN_YOYO_MODEL);
+            ResourceLocation blocking = new ResourceLocation(GateOfBabylon.MODID, "blocking");
+            ItemProperties.register(GOBItems.STONE_SHIELD.get(), blocking, new ShieldUsePredicate());
+            ItemProperties.register(GOBItems.IRON_SHIELD.get(), blocking, new ShieldUsePredicate());
+            ItemProperties.register(GOBItems.GOLDEN_SHIELD.get(), blocking, new ShieldUsePredicate());
+            ItemProperties.register(GOBItems.DIAMOND_SHIELD.get(), blocking, new ShieldUsePredicate());
+            ItemProperties.register(GOBItems.NETHERITE_SHIELD.get(), blocking, new ShieldUsePredicate());
         });
     }
 
-    public static void registerBowPredicates(CustomBowItem bow) {
-        FabricModelPredicateProviderRegistry.register(bow, new Identifier("pull"), new BowPullPredicate(bow));
-        FabricModelPredicateProviderRegistry.register(bow, new Identifier("pulling"), new BowPullingPredicate());
+    @SubscribeEvent
+    public static void registerAdditionalModels(ModelEvent.RegisterAdditional event) {
+        event.register(DIAMOND_YOYO_MODEL);
+        event.register(NETHERITE_YOYO_MODEL);
+        event.register(GOLDEN_YOYO_MODEL);
+        event.register(IRON_YOYO_MODEL);
+        event.register(STONE_YOYO_MODEL);
+        event.register(WOODEN_YOYO_MODEL);
+    }
+
+    private static void registerBowPredicates(CustomBowItem bow) {
+        ItemProperties.register(bow, new ResourceLocation(GateOfBabylon.MODID, "pull"), new BowPullPredicate(bow));
+        ItemProperties.register(bow, new ResourceLocation(GateOfBabylon.MODID, "pulling"), new BowPullingPredicate());
     }
 }

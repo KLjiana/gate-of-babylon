@@ -1,29 +1,31 @@
 package draylar.gateofbabylon.registry;
 
 import draylar.gateofbabylon.GateOfBabylon;
-import net.minecraft.block.Block;
-import net.minecraft.item.BlockItem;
-import net.minecraft.item.Item;
-import net.minecraft.registry.Registries;
-import net.minecraft.registry.Registry;
+import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.level.block.Block;
+import net.minecraftforge.registries.DeferredRegister;
+import net.minecraftforge.registries.ForgeRegistries;
 
-public class GOBBlocks {
+public final class GOBBlocks {
 
-    private static <T extends Block> T register(String name, T block, Item.Settings settings) {
-        T registeredBlock = Registry.register(Registries.BLOCK, GateOfBabylon.id(name), block);
-        Registry.register(Registries.ITEM, GateOfBabylon.id(name), new BlockItem(registeredBlock, settings));
-        return registeredBlock;
+    public static final DeferredRegister<Block> BLOCKS = DeferredRegister.create(ForgeRegistries.BLOCKS, GateOfBabylon.MODID);
+
+    private static <T extends Block> T register(String name, T block, Item.Properties properties) {
+        BLOCKS.register(name, () -> block);
+        GOBItems.ITEMS.register(name, () -> new BlockItem(block, properties));
+        return block;
     }
 
     private static <T extends Block> T register(String name, T block) {
-        return Registry.register(Registries.BLOCK, GateOfBabylon.id(name), block);
+        BLOCKS.register(name, () -> block);
+        return block;
     }
 
     public static void init() {
-        // NO-OP
+        // NO-OP; referencing this class initializes the deferred entries.
     }
 
     private GOBBlocks() {
-        // NO-OP
     }
 }

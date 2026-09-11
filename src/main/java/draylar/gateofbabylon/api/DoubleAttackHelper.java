@@ -1,15 +1,15 @@
 package draylar.gateofbabylon.api;
 
-import net.minecraft.entity.Entity;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.util.Hand;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionHand;
 
 import java.util.Timer;
 import java.util.TimerTask;
 
 public class DoubleAttackHelper {
 
-    public static void queueDoubleAttack(ServerPlayerEntity player, Entity target) {
+    public static void queueDoubleAttack(ServerPlayer player, Entity target) {
         Timer timer = new Timer();
 
         timer.schedule(
@@ -20,7 +20,7 @@ public class DoubleAttackHelper {
                             player.getServer().execute(() -> {
                                 if (target.isAlive()) {
                                     player.attack(target);
-                                    player.swingHand(Hand.MAIN_HAND);
+                                    player.swing(InteractionHand.MAIN_HAND);
                                 }
                             });
                         }
@@ -28,3 +28,4 @@ public class DoubleAttackHelper {
                 }, 250);
     }
 }
+

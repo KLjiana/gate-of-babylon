@@ -1,70 +1,50 @@
 package draylar.gateofbabylon.registry;
 
 import draylar.gateofbabylon.GateOfBabylon;
-import draylar.gateofbabylon.client.BoomerangEntityRenderer;
-import draylar.gateofbabylon.client.YoyoEntityRenderer;
 import draylar.gateofbabylon.entity.BoomerangEntity;
 import draylar.gateofbabylon.entity.SpearProjectileEntity;
 import draylar.gateofbabylon.entity.YoyoEntity;
-import net.fabricmc.fabric.api.object.builder.v1.entity.FabricEntityTypeBuilder;
-import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.block.entity.BlockEntityType;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.EntityDimensions;
-import net.minecraft.entity.EntityType;
-import net.minecraft.entity.SpawnGroup;
-import net.minecraft.registry.Registries;
-import net.minecraft.registry.Registry;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.MobCategory;
+import net.minecraftforge.registries.DeferredRegister;
+import net.minecraftforge.registries.ForgeRegistries;
+import net.minecraftforge.registries.RegistryObject;
 
-public class GOBEntities {
+public final class GOBEntities {
 
-    /**
-     * {@link SpearProjectileEntity}, {@link draylar.gateofbabylon.client.SpearProjectileEntityRenderer}
-     */
-    public static final EntityType<SpearProjectileEntity> SPEAR = register(
+    public static final DeferredRegister<EntityType<?>> ENTITY_TYPES = DeferredRegister.create(ForgeRegistries.ENTITY_TYPES, GateOfBabylon.MODID);
+
+    public static final RegistryObject<EntityType<SpearProjectileEntity>> SPEAR = ENTITY_TYPES.register(
             "spear",
-            FabricEntityTypeBuilder
-                    .<SpearProjectileEntity>create(SpawnGroup.MISC, (SpearProjectileEntity::new))
-                    .trackable(128, 4)
-                    .dimensions(EntityDimensions.fixed(.5f, .5f)).build());
+            () -> EntityType.Builder.<SpearProjectileEntity>of((type, level) -> new SpearProjectileEntity(type, level), MobCategory.MISC)
+                    .sized(.5f, .5f)
+                    .setTrackingRange(128)
+                    .setUpdateInterval(4)
+                    .build("spear"));
 
-    /**
-     * {@link YoyoEntity}, {@link YoyoEntityRenderer}
-     */
-    public static final EntityType<YoyoEntity> YOYO = register(
+    public static final RegistryObject<EntityType<YoyoEntity>> YOYO = ENTITY_TYPES.register(
             "yoyo",
-            FabricEntityTypeBuilder
-                .<YoyoEntity>create(SpawnGroup.MISC, YoyoEntity::new)
-                    .trackRangeBlocks(128)
-                    .trackedUpdateRate(1)
-                    .forceTrackedVelocityUpdates(true)
-                .dimensions(EntityDimensions.fixed(.25f, .25f)).build());
+            () -> EntityType.Builder.<YoyoEntity>of((type, level) -> new YoyoEntity(type, level), MobCategory.MISC)
+                    .sized(.25f, .25f)
+                    .setTrackingRange(128)
+                    .setUpdateInterval(1)
+                    .setShouldReceiveVelocityUpdates(true)
+                    .build("yoyo"));
 
-    /**
-     * {@link BoomerangEntity}, {@link BoomerangEntityRenderer}
-     */
-    public static final EntityType<BoomerangEntity> BOOMERANG = register(
+    public static final RegistryObject<EntityType<BoomerangEntity>> BOOMERANG = ENTITY_TYPES.register(
             "boomerang",
-            FabricEntityTypeBuilder
-                    .<BoomerangEntity>create(SpawnGroup.MISC, BoomerangEntity::new)
-                    .trackRangeBlocks(128)
-                    .trackedUpdateRate(1)
-                    .forceTrackedVelocityUpdates(true)
-                    .dimensions(EntityDimensions.fixed(.5f, .1f)).build());
-
-    private static <T extends Entity> EntityType<T> register(String name, EntityType<T> entity) {
-        return Registry.register(Registries.ENTITY_TYPE, GateOfBabylon.id(name), entity);
-    }
-
-    private static <T extends BlockEntity> BlockEntityType<T> register(String name, BlockEntityType<T> entity) {
-        return Registry.register(Registries.BLOCK_ENTITY_TYPE, GateOfBabylon.id(name), entity);
-    }
+            () -> EntityType.Builder.<BoomerangEntity>of((type, level) -> new BoomerangEntity(type, level), MobCategory.MISC)
+                    .sized(.5f, .1f)
+                    .setTrackingRange(128)
+                    .setUpdateInterval(1)
+                    .setShouldReceiveVelocityUpdates(true)
+                    .build("boomerang"));
 
     public static void init() {
-        // NO-OP
+        // NO-OP; referencing this class initializes the deferred entries.
     }
 
     private GOBEntities() {
-        // NO-OP
     }
 }

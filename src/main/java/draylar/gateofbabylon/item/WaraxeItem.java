@@ -2,55 +2,57 @@ package draylar.gateofbabylon.item;
 
 import draylar.gateofbabylon.GateOfBabylon;
 import draylar.gateofbabylon.api.EnchantmentHandler;
-import draylar.gateofbabylon.mixin.FallingBlockEntityAccessor;
 import draylar.gateofbabylon.registry.GOBEnchantments;
-import net.minecraft.block.BlockState;
-import net.minecraft.enchantment.EnchantmentHelper;
-import net.minecraft.entity.FallingBlockEntity;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.damage.DamageSource;
-import net.minecraft.entity.mob.HostileEntity;
-import net.minecraft.entity.passive.TameableEntity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.AxeItem;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.ToolMaterial;
-import net.minecraft.particle.BlockStateParticleEffect;
-import net.minecraft.particle.ParticleTypes;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.sound.SoundCategory;
-import net.minecraft.util.Hand;
-import net.minecraft.util.TypedActionResult;
-import net.minecraft.util.UseAction;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.World;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.item.enchantment.EnchantmentHelper;
+import net.minecraft.world.entity.item.FallingBlockEntity;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.entity.monster.Monster;
+import net.minecraft.world.entity.TamableAnimal;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.AxeItem;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Tier;
+import net.minecraft.core.particles.BlockParticleOption;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResultHolder;
+import net.minecraft.world.item.UseAnim;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.level.Level;
 
 public class WaraxeItem extends AxeItem implements EnchantmentHandler {
 
-    public WaraxeItem(ToolMaterial material, float effectiveDamage, float effectiveSpeed, Item.Settings settings) {
-        super(material, (int) (effectiveDamage - material.getAttackDamage() - 1), -4 + effectiveSpeed, settings);
+    private final float attackDamage;
+
+    public WaraxeItem(Tier material, float effectiveDamage, float effectiveSpeed, Item.Properties settings) {
+        super(material, (int) (effectiveDamage - material.getAttackDamageBonus() - 1), -4 + effectiveSpeed, settings);
+        this.attackDamage = effectiveDamage;
     }
 
     @Override
-    public UseAction getUseAction(ItemStack stack) {
-        return UseAction.BOW;
+    public UseAnim getUseAnimation(ItemStack stack) {
+        return UseAnim.BOW;
     }
 
     @Override
-    public int getMaxUseTime(ItemStack stack) {
+    public int getUseDuration(ItemStack stack) {
         return 30;
     }
 
     @Override
-    public ItemStack finishUsing(ItemStack stack, World world, LivingEntity user) {
-        boolean hasSmashing = EnchantmentHelper.getLevel(GOBEnchantments.SMASHING, stack) > 0;
+    public ItemStack finishUsingItem(ItemStack stack, Level world, LivingEntity user) {
+        boolean hasSmashing = EnchantmentHelper.getItemEnchantmentLevel(GOBEnchantments.SMASHING, stack) > 0;
         int radius = hasSmashing ? 5 : 3;
 
-        if (!world.isClient && user instanceof PlayerEntity) {
-            PlayerEntity player = (PlayerEntity) user;
+        if (!world.isClientSide && user instanceof Player) {
+            Player player = (Player) user;
 
             // spawn effects
             for (int x = -radius; x <= radius; x++) {
@@ -58,62 +60,62 @@ public class WaraxeItem extends AxeItem implements EnchantmentHandler {
                     double distance = Math.sqrt(Math.pow(x, 2) + Math.pow(z, 2));
 
                     if (distance <= radius && distance >= radius / 2f) {
-                        Vec3d newPos = user.getPos().add(x, -2, z);
+                        Vec3 newPos = user.position().add(x, -2, z);
                         int level = 0;
 
-                        while(!world.getBlockState(BlockPos.ofFloored(newPos).up()).isAir() && level < 5) {
+                        while(!world.getBlockState(BlockPos.containing(newPos).above()).isAir() && level < 5) {
                             newPos = newPos.add(0, 1, 0);
                             level++;
                         }
 
-                        if(world.getBlockState(BlockPos.ofFloored(newPos).up()).isAir()) {
-                            spawnEntity((ServerWorld) world, newPos.add(0, 1, 0), user, world.getBlockState(BlockPos.ofFloored(newPos)));
+                        if(world.getBlockState(BlockPos.containing(newPos).above()).isAir()) {
+                            addFreshEntity((ServerLevel) world, newPos.add(0, 1, 0), user, world.getBlockState(BlockPos.containing(newPos)));
                         }
                     }
                 }
             }
 
             // knock back nearby entities
-            world.getEntitiesByClass(LivingEntity.class, new Box(user.getBlockPos().add(-radius - 2, -1, -radius - 2), user.getBlockPos().add(radius + 2, 3, radius + 2)), entity -> entity != user).forEach(entity -> {
+            world.getEntitiesOfClass(LivingEntity.class, new AABB(user.blockPosition().offset(-radius - 2, -1, -radius - 2), user.blockPosition().offset(radius + 2, 3, radius + 2)), entity -> entity != user).forEach(entity -> {
                 // Triggers for entities that aren't tameable, or that aren't tamed, or that aren't owned by the owner of the breath
-                if (!(entity instanceof TameableEntity) || !((TameableEntity) entity).isTamed() || !((TameableEntity) entity).getOwnerUuid().equals(player.getUuid())) {
-                    entity.damage(entity.getWorld().getDamageSources().playerAttack(player), hasSmashing ? getAttackDamage() * 1.5f : getAttackDamage());
-                    entity.setVelocity(entity.getPos().subtract(player.getPos()).multiply(hasSmashing ? .6 : .5).add(0, .35, 0));
+                if (!(entity instanceof TamableAnimal) || !((TamableAnimal) entity).isTame() || !((TamableAnimal) entity).getOwnerUUID().equals(player.getUUID())) {
+                    entity.hurt(entity.level().damageSources().playerAttack(player), hasSmashing ? attackDamage * 1.5f : attackDamage);
+                    entity.setDeltaMovement(entity.position().subtract(player.position()).scale(hasSmashing ? .6 : .5).add(0, .35, 0));
                 }
             });
 
-            player.getItemCooldownManager().set(this, 20 * 5); // 20 * 5
+            player.getCooldowns().addCooldown(this, 20 * 5); // 20 * 5
         }
 
-        return super.finishUsing(stack, world, user);
+        return super.finishUsingItem(stack, world, user);
     }
 
     @Override
-    public TypedActionResult<ItemStack> use(World world, PlayerEntity user, Hand hand) {
-        ItemStack itemStack = user.getStackInHand(hand);
-        user.setCurrentHand(hand);
-        return TypedActionResult.consume(itemStack);
+    public InteractionResultHolder<ItemStack> use(Level world, Player user, InteractionHand hand) {
+        ItemStack itemStack = user.getItemInHand(hand);
+        user.startUsingItem(hand);
+        return InteractionResultHolder.consume(itemStack);
     }
 
-    public void spawnEntity(ServerWorld world, Vec3d pos, LivingEntity source, BlockState state) {
-        FallingBlockEntity spawn = FallingBlockEntityAccessor.createFallingBlockEntity(world, pos.getX(), pos.getY(), pos.getZ(), state);
+    public void addFreshEntity(ServerLevel world, Vec3 pos, LivingEntity source, BlockState state) {
+        FallingBlockEntity spawn = FallingBlockEntity.fall(world, BlockPos.containing(pos), state);
 
         // setup velocity
-        Vec3d difference = pos.subtract(source.getPos()).multiply(.1);
-        spawn.addVelocity(0, .35, 0);
-        spawn.addVelocity(source.getVelocity().x, source.getVelocity().y, source.getVelocity().z);
-        spawn.addVelocity(difference.x, difference.y, difference.z);
+        Vec3 difference = pos.subtract(source.position()).scale(.1);
+        spawn.setDeltaMovement(spawn.getDeltaMovement().add(0.0D, 0.35D, 0.0D)
+                .add(source.getDeltaMovement()).add(difference));
 
         // spawn particles
-        world.spawnParticles(new BlockStateParticleEffect(ParticleTypes.BLOCK, state), pos.getX(), pos.getY(), pos.getZ(), 3, 0, 0, 0, .1);
-        world.playSound(null, pos.getX(), pos.getY(), pos.getZ(), state.getSoundGroup().getPlaceSound(), SoundCategory.PLAYERS, .25f, .5f + world.random.nextInt() * .25f);
+        world.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, state), pos.x, pos.y, pos.z, 3, 0, 0, 0, .1);
+        world.playSound(null, pos.x, pos.y, pos.z, state.getSoundType().getPlaceSound(), SoundSource.PLAYERS, .25f, .5f + world.random.nextInt() * .25f);
 
         // setup properties
         spawn.dropItem = false;
-        ((FallingBlockEntityAccessor) spawn).setDestroyedOnLanding(true);
-        spawn.timeFalling = 5;
+        spawn.disableDrop();
+        spawn.time = 5;
 
         // spawn
-        world.spawnEntity(spawn);
+        world.addFreshEntity(spawn);
     }
 }
+

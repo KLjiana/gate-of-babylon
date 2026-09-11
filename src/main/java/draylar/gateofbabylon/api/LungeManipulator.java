@@ -4,3 +4,4 @@ public interface LungeManipulator {
     boolean gateOfBabylon$canLunge();
     void gateOfBabylon$setLunged();
 }
+

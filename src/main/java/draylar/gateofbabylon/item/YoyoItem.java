@@ -2,38 +2,39 @@ package draylar.gateofbabylon.item;
 
 import draylar.gateofbabylon.entity.YoyoEntity;
 import draylar.gateofbabylon.registry.GOBEntities;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.ToolItem;
-import net.minecraft.item.ToolMaterial;
-import net.minecraft.util.Hand;
-import net.minecraft.util.TypedActionResult;
-import net.minecraft.util.math.Box;
-import net.minecraft.world.World;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.TieredItem;
+import net.minecraft.world.item.Tier;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResultHolder;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.level.Level;
 
 import java.util.ArrayList;
 import java.util.List;
 
-public class YoyoItem extends ToolItem {
+public class YoyoItem extends TieredItem {
 
-    private final ToolMaterial material;
+    private final Tier material;
 
-    public YoyoItem(Settings settings, ToolMaterial material) {
+    public YoyoItem(Item.Properties settings, Tier material) {
         super(material, settings);
         this.material = material;
     }
 
     @Override
-    public TypedActionResult<ItemStack> use(World world, PlayerEntity user, Hand hand) {
-        if(!world.isClient) {
+    public InteractionResultHolder<ItemStack> use(Level world, Player user, InteractionHand hand) {
+        if(!world.isClientSide) {
             // If the user already has a yoyo out, we want to retract it.
             // Otherwise, we spawn a new yoyo and send it flying out / away from the player.
-            List<YoyoEntity> found = new ArrayList<>(world.getEntitiesByClass(
+            List<YoyoEntity> found = new ArrayList<>(world.getEntitiesOfClass(
                     YoyoEntity.class,
-                    new Box(user.getBlockPos().add(-25, -25, -25), user.getBlockPos().add(25, 25, 25)),
-                    yoyo -> yoyo.isAlive() && yoyo.getOwner().isPresent() && yoyo.getOwner().get().equals(user.getUuid())));
+                    new AABB(user.blockPosition().offset(-25, -25, -25), user.blockPosition().offset(25, 25, 25)),
+                    yoyo -> yoyo.isAlive() && yoyo.getOwner().isPresent() && yoyo.getOwner().get().equals(user.getUUID())));
 
             // Yoyo was found, remove it and stop early.
             if(!found.isEmpty()) {
@@ -45,33 +46,33 @@ public class YoyoItem extends ToolItem {
                     yoyo.kill();
                 });
 
-                return TypedActionResult.success(user.getStackInHand(hand));
+                return InteractionResultHolder.success(user.getItemInHand(hand));
             }
 
             // Yoyo was not found, spawn a new one now.
-            YoyoEntity yoyo = new YoyoEntity(GOBEntities.YOYO, world);
+            YoyoEntity yoyo = new YoyoEntity(GOBEntities.YOYO.get(), world);
             yoyo.setPos(user.getX(), user.getY(), user.getZ());
-            yoyo.updateTrackedPosition(user.getX(), user.getY(), user.getZ());
-            yoyo.requestTeleport(user.getX(), user.getY(), user.getZ());
+            yoyo.setPos(user.getX(), user.getY(), user.getZ());
+            yoyo.setPos(user.getX(), user.getY(), user.getZ());
             yoyo.setOwner(user);
-            yoyo.setStack(user.getStackInHand(hand));
-            world.spawnEntity(yoyo);
+            yoyo.setStack(user.getItemInHand(hand));
+            world.addFreshEntity(yoyo);
             yoyo.deploy();
         }
 
-        user.setCurrentHand(hand);
-        return TypedActionResult.success(user.getStackInHand(hand));
+        user.startUsingItem(hand);
+        return InteractionResultHolder.success(user.getItemInHand(hand));
     }
 
     @Override
-    public void onStoppedUsing(ItemStack stack, World world, LivingEntity user, int remainingUseTicks) {
-        super.onStoppedUsing(stack, world, user, remainingUseTicks);
+    public void releaseUsing(ItemStack stack, Level world, LivingEntity user, int remainingUseTicks) {
+        super.releaseUsing(stack, world, user, remainingUseTicks);
 
         // Stop using yoyo
-        List<YoyoEntity> found = new ArrayList<>(world.getEntitiesByClass(
+        List<YoyoEntity> found = new ArrayList<>(world.getEntitiesOfClass(
                 YoyoEntity.class,
-                new Box(user.getBlockPos().add(-25, -25, -25), user.getBlockPos().add(25, 25, 25)),
-                yoyo -> yoyo.isAlive() && yoyo.getOwner().isPresent() && yoyo.getOwner().get().equals(user.getUuid())));
+                new AABB(user.blockPosition().offset(-25, -25, -25), user.blockPosition().offset(25, 25, 25)),
+                yoyo -> yoyo.isAlive() && yoyo.getOwner().isPresent() && yoyo.getOwner().get().equals(user.getUUID())));
 
         // Yoyo was found, remove it and stop early.
         if(!found.isEmpty()) {
@@ -85,7 +86,8 @@ public class YoyoItem extends ToolItem {
         }
     }
 
-    public ToolMaterial getMaterial() {
+    public Tier getMaterial() {
         return material;
     }
 }
+

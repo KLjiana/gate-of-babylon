@@ -1,24 +1,18 @@
 {
   "required": true,
+  "minVersion": "0.8",
   "package": "draylar.gateofbabylon.mixin",
-  "compatibilityLevel": "JAVA_8",
+  "compatibilityLevel": "JAVA_17",
   "mixins": [
-    "AbstractButtonBlockAccessor",
-    "AreaEffectCloudEntityAccessor",
-    "AreaEffectCloudEntityMixin",
-    "BlockSoundGroupAccessor",
     "EnchantmentHelperMixin",
     "EnchantmentMixin",
-    "FallingBlockEntityAccessor",
     "MobEntityMixin",
     "PersistentProjectileEntityMixin",
     "PlayerEntityLungeMixin",
     "PlayerEntityMixin"
   ],
-  "client": [
-    "ClientPlayerEntityYoyoUsageMixin"
-  ],
   "injectors": {
     "defaultRequire": 1
-  }
+  },
+  "refmap": "mixins.gateofbabylon.refmap.json"
 }

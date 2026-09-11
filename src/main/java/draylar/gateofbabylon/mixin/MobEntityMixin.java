@@ -1,40 +1,41 @@
 package draylar.gateofbabylon.mixin;
 
 import draylar.gateofbabylon.item.CustomShieldItem;
-import net.minecraft.enchantment.EnchantmentHelper;
-import net.minecraft.entity.EntityType;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.mob.MobEntity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.AxeItem;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.world.World;
+import net.minecraft.world.item.enchantment.EnchantmentHelper;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.AxeItem;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.Level;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-@Mixin(MobEntity.class)
+@Mixin(Mob.class)
 public abstract class MobEntityMixin extends LivingEntity {
 
-    private MobEntityMixin(EntityType<? extends LivingEntity> entityType, World world) {
+    private MobEntityMixin(EntityType<? extends LivingEntity> entityType, Level world) {
         super(entityType, world);
     }
 
     // Replicate Vanilla shield-disabling behavior for custom shield items (vanilla directly checks against shield item instance)
     @Inject(
-            method = "disablePlayerShield",
+            method = "maybeDisableShield",
             at = @At("HEAD")
     )
-    private void disableCustomShield(PlayerEntity player, ItemStack mobStack, ItemStack playerStack, CallbackInfo ci) {
+    private void disableCustomShield(Player player, ItemStack mobStack, ItemStack playerStack, CallbackInfo ci) {
         if(!mobStack.isEmpty() && !playerStack.isEmpty() && mobStack.getItem() instanceof AxeItem && playerStack.getItem() instanceof CustomShieldItem) {
-            float efficiency = 0.25F + (float) EnchantmentHelper.getEfficiency((MobEntity) (Object) this) * 0.05F;
+            float efficiency = 0.25F + (float) EnchantmentHelper.getBlockEfficiency((Mob) (Object) this) * 0.05F;
 
             if (this.random.nextFloat() < efficiency) {
-                player.getItemCooldownManager().set(Items.SHIELD, 100);
-                getWorld().sendEntityStatus(player, (byte) 30);
+                player.getCooldowns().addCooldown(Items.SHIELD, 100);
+                level().broadcastEntityEvent(player, (byte) 30);
             }
         }
     }
 }
+

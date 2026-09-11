@@ -1,13 +1,13 @@
 package draylar.gateofbabylon.api;
 
-import net.minecraft.enchantment.Enchantment;
-import net.minecraft.enchantment.EnchantmentTarget;
+import net.minecraft.world.item.enchantment.Enchantment;
+import net.minecraft.world.item.enchantment.EnchantmentCategory;
 
 import java.util.Collections;
 import java.util.List;
 
 public interface EnchantmentHandler {
-    default List<EnchantmentTarget> getEnchantmentTypes() {
+    default List<EnchantmentCategory> getEnchantmentTypes() {
         return Collections.emptyList();
     }
 
@@ -17,3 +17,4 @@ public interface EnchantmentHandler {
 
     default boolean isExplicitlyValid(Enchantment enchantment) { return false; }
 }
+

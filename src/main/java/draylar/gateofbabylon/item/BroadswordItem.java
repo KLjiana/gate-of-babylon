@@ -2,13 +2,14 @@ package draylar.gateofbabylon.item;
 
 import draylar.gateofbabylon.GateOfBabylon;
 import draylar.gateofbabylon.api.EnchantmentHandler;
-import net.minecraft.item.Item;
-import net.minecraft.item.SwordItem;
-import net.minecraft.item.ToolMaterial;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.SwordItem;
+import net.minecraft.world.item.Tier;
 
 public class BroadswordItem extends SwordItem implements EnchantmentHandler {
 
-    public BroadswordItem(ToolMaterial material, float effectiveDamage, float effectiveSpeed, Item.Settings settings) {
-        super(material, (int) (effectiveDamage - material.getAttackDamage()), -4 + effectiveSpeed, settings);
+    public BroadswordItem(Tier material, float effectiveDamage, float effectiveSpeed, Item.Properties settings) {
+        super(material, (int) (effectiveDamage - material.getAttackDamageBonus()), -4 + effectiveSpeed, settings);
     }
 }
+

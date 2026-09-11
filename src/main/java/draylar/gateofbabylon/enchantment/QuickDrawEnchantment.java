@@ -1,13 +1,13 @@
 package draylar.gateofbabylon.enchantment;
 
-import net.minecraft.enchantment.Enchantment;
-import net.minecraft.enchantment.EnchantmentTarget;
-import net.minecraft.entity.EquipmentSlot;
+import net.minecraft.world.item.enchantment.Enchantment;
+import net.minecraft.world.item.enchantment.EnchantmentCategory;
+import net.minecraft.world.entity.EquipmentSlot;
 
 public class QuickDrawEnchantment extends Enchantment {
 
     public QuickDrawEnchantment() {
-        super(Rarity.VERY_RARE, EnchantmentTarget.BOW, new EquipmentSlot[] { EquipmentSlot.MAINHAND });
+        super(Rarity.VERY_RARE, EnchantmentCategory.BOW, new EquipmentSlot[] { EquipmentSlot.MAINHAND });
     }
 
     @Override
@@ -15,3 +15,4 @@ public class QuickDrawEnchantment extends Enchantment {
         return 3;
     }
 }
+

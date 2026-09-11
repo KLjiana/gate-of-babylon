@@ -1,11 +1,11 @@
 package draylar.gateofbabylon.enchantment;
 
-import net.minecraft.particle.ParticleTypes;
-import net.minecraft.sound.SoundEvents;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.sounds.SoundEvents;
 
 public class DragonSlashEnchantment extends KatanaSlashEnchantment {
 
     public DragonSlashEnchantment() {
-        super(SoundEvents.ENTITY_ENDER_DRAGON_AMBIENT, ParticleTypes.WITCH);
+        super(SoundEvents.ENDER_DRAGON_AMBIENT, ParticleTypes.WITCH);
     }
 }

@@ -1,45 +1,58 @@
 package draylar.gateofbabylon;
 
 import draylar.gateofbabylon.impl.BoomerangDispenserBehavior;
-import draylar.gateofbabylon.registry.*;
-import net.fabricmc.api.ModInitializer;
-import net.fabricmc.fabric.api.itemgroup.v1.FabricItemGroup;
-import net.minecraft.block.DispenserBlock;
-import net.minecraft.item.ItemGroup;
-import net.minecraft.item.ItemStack;
-import net.minecraft.registry.Registries;
-import net.minecraft.registry.Registry;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
+import draylar.gateofbabylon.registry.GOBBlocks;
+import draylar.gateofbabylon.registry.GOBEffects;
+import draylar.gateofbabylon.registry.GOBEnchantments;
+import draylar.gateofbabylon.registry.GOBEntities;
+import draylar.gateofbabylon.registry.GOBItems;
+import draylar.gateofbabylon.registry.GOBSounds;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.CreativeModeTab;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.DispenserBlock;
+import net.minecraftforge.eventbus.api.IEventBus;
+import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
+import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
+import net.minecraftforge.registries.DeferredRegister;
+import net.minecraftforge.registries.RegistryObject;
 
-public class GateOfBabylon implements ModInitializer {
+@Mod(GateOfBabylon.MODID)
+public class GateOfBabylon {
 
-    public static final ItemGroup GROUP = FabricItemGroup.builder().displayName(Text.translatable("itemGroup.gateofbabylon.group"))
-            .icon(() -> new ItemStack(GOBItems.DIAMOND_SPEAR))
-            .entries((context, entries) -> {
-                GOBItems.init();
+    public static final String MODID = "gateofbabylon";
 
-                // Add GOB registry to ItemGroup
-                Registries.ITEM.getEntrySet().stream().filter(entry -> entry.getKey().getValue().getNamespace().equals("gateofbabylon")).forEach(item -> {
-                    entries.add(new ItemStack(item.getValue()));
-                });
-            })
-            .build();
+    private static final DeferredRegister<CreativeModeTab> CREATIVE_MODE_TABS =
+            DeferredRegister.create(Registries.CREATIVE_MODE_TAB, MODID);
 
-    @Override
-    public void onInitialize() {
-        GOBEffects.init();
-        GOBItems.init();
-        GOBEnchantments.init();
-        GOBEntities.init();
-        GOBBlocks.init();
-        GOBSounds.init();
+    public static final RegistryObject<CreativeModeTab> GROUP = CREATIVE_MODE_TABS.register("group", () ->
+            CreativeModeTab.builder()
+                    .title(Component.translatable("itemGroup.gateofbabylon.group"))
+                    .icon(() -> new ItemStack(GOBItems.DIAMOND_SPEAR.get()))
+                    .displayItems((parameters, output) -> GOBItems.CREATIVE_TAB_ITEMS.forEach(item -> output.accept(item.get())))
+                    .build());
 
-        Registry.register(Registries.ITEM_GROUP, id("group"), GROUP);
-        DispenserBlock.registerBehavior(GOBItems.DIAMOND_BOOMERANG, new BoomerangDispenserBehavior());
+    public GateOfBabylon() {
+        IEventBus modEventBus = FMLJavaModLoadingContext.get().getModEventBus();
+        GOBItems.ITEMS.register(modEventBus);
+        GOBBlocks.BLOCKS.register(modEventBus);
+        GOBEffects.MOB_EFFECTS.register(modEventBus);
+        GOBEnchantments.ENCHANTMENTS.register(modEventBus);
+        GOBEntities.ENTITY_TYPES.register(modEventBus);
+        GOBSounds.SOUND_EVENTS.register(modEventBus);
+        CREATIVE_MODE_TABS.register(modEventBus);
+        modEventBus.addListener(this::commonSetup);
     }
 
-    public static Identifier id(String name) {
-        return new Identifier("gateofbabylon", name);
+    private void commonSetup(FMLCommonSetupEvent event) {
+        event.enqueueWork(() ->
+                DispenserBlock.registerBehavior(GOBItems.DIAMOND_BOOMERANG.get(), new BoomerangDispenserBehavior()));
+    }
+
+    public static ResourceLocation id(String name) {
+        return new ResourceLocation(MODID, name);
     }
 }

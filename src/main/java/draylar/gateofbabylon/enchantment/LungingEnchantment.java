@@ -2,15 +2,15 @@ package draylar.gateofbabylon.enchantment;
 
 import draylar.gateofbabylon.api.ValidatingEnchantment;
 import draylar.gateofbabylon.item.RapierItem;
-import net.minecraft.enchantment.Enchantment;
-import net.minecraft.enchantment.EnchantmentTarget;
-import net.minecraft.entity.EquipmentSlot;
-import net.minecraft.item.ItemStack;
+import net.minecraft.world.item.enchantment.Enchantment;
+import net.minecraft.world.item.enchantment.EnchantmentCategory;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.item.ItemStack;
 
 public class LungingEnchantment extends Enchantment implements ValidatingEnchantment {
 
     public LungingEnchantment() {
-        super(Rarity.UNCOMMON, EnchantmentTarget.WEAPON, new EquipmentSlot[] {
+        super(Rarity.UNCOMMON, EnchantmentCategory.WEAPON, new EquipmentSlot[] {
                 EquipmentSlot.MAINHAND
         });
     }
@@ -21,7 +21,8 @@ public class LungingEnchantment extends Enchantment implements ValidatingEnchant
     }
 
     @Override
-    public boolean isAcceptableItem(ItemStack stack) {
+    public boolean canEnchant(ItemStack stack) {
         return stack.getItem() instanceof RapierItem;
     }
 }
+

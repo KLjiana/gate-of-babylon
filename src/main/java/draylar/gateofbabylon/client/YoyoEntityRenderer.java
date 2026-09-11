@@ -1,21 +1,27 @@
 package draylar.gateofbabylon.client;
 
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.VertexConsumer;
+import com.mojang.math.Axis;
 import draylar.gateofbabylon.GateOfBabylonClient;
 import draylar.gateofbabylon.entity.YoyoEntity;
 import draylar.gateofbabylon.registry.GOBItems;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.render.*;
-import net.minecraft.client.render.entity.EntityRenderer;
-import net.minecraft.client.render.entity.EntityRendererFactory;
-import net.minecraft.client.render.model.BakedModel;
-import net.minecraft.client.util.ModelIdentifier;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.Item;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.*;
-import net.minecraft.world.LightType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.LightTexture;
+import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.RenderType;
+import net.minecraft.client.renderer.entity.EntityRenderer;
+import net.minecraft.client.renderer.entity.EntityRendererProvider;
+import net.minecraft.client.renderer.texture.OverlayTexture;
+import net.minecraft.client.resources.model.BakedModel;
+import net.minecraft.client.resources.model.ModelResourceLocation;
+import net.minecraft.core.BlockPos;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.level.LightLayer;
 import org.joml.Matrix4f;
 
 import java.util.HashMap;
@@ -25,136 +31,134 @@ import java.util.UUID;
 
 public class YoyoEntityRenderer extends EntityRenderer<YoyoEntity> {
 
-    private static final Map<Item, ModelIdentifier> ITEM_TO_MODEL = new HashMap<>();
+    private static final Map<Item, ModelResourceLocation> ITEM_TO_MODEL = new HashMap<>();
 
     static {
-        ITEM_TO_MODEL.put(GOBItems.WOODEN_YOYO, GateOfBabylonClient.WOODEN_YOYO_MODEL);
-        ITEM_TO_MODEL.put(GOBItems.STONE_YOYO, GateOfBabylonClient.STONE_YOYO_MODEL);
-        ITEM_TO_MODEL.put(GOBItems.IRON_YOYO, GateOfBabylonClient.IRON_YOYO_MODEL);
-        ITEM_TO_MODEL.put(GOBItems.GOLDEN_YOYO, GateOfBabylonClient.GOLDEN_YOYO_MODEL);
-        ITEM_TO_MODEL.put(GOBItems.DIAMOND_YOYO, GateOfBabylonClient.DIAMOND_YOYO_MODEL);
-        ITEM_TO_MODEL.put(GOBItems.NETHERITE_YOYO, GateOfBabylonClient.NETHERITE_YOYO_MODEL);
+        ITEM_TO_MODEL.put(GOBItems.WOODEN_YOYO.get(), GateOfBabylonClient.WOODEN_YOYO_MODEL);
+        ITEM_TO_MODEL.put(GOBItems.STONE_YOYO.get(), GateOfBabylonClient.STONE_YOYO_MODEL);
+        ITEM_TO_MODEL.put(GOBItems.IRON_YOYO.get(), GateOfBabylonClient.IRON_YOYO_MODEL);
+        ITEM_TO_MODEL.put(GOBItems.GOLDEN_YOYO.get(), GateOfBabylonClient.GOLDEN_YOYO_MODEL);
+        ITEM_TO_MODEL.put(GOBItems.DIAMOND_YOYO.get(), GateOfBabylonClient.DIAMOND_YOYO_MODEL);
+        ITEM_TO_MODEL.put(GOBItems.NETHERITE_YOYO.get(), GateOfBabylonClient.NETHERITE_YOYO_MODEL);
     }
 
-    public YoyoEntityRenderer(EntityRendererFactory.Context ctx) {
-        super(ctx);
+    public YoyoEntityRenderer(EntityRendererProvider.Context context) {
+        super(context);
     }
 
     @Override
-    public void render(YoyoEntity yoyo, float yaw, float tickDelta, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light) {
-        // push new translations
-        matrices.push();
+    public void render(YoyoEntity yoyo, float yaw, float partialTick, PoseStack poseStack,
+                       MultiBufferSource buffer, int packedLight) {
+        poseStack.pushPose();
+        float lerpedAge = Mth.lerp(partialTick, yoyo.tickCount - 1, yoyo.tickCount);
 
-        float lerpedAge = MathHelper.lerp(tickDelta, yoyo.age - 1, yoyo.age);
+        poseStack.pushPose();
+        poseStack.translate(0.0D, 0.15D, 0.0D);
+        poseStack.mulPose(entityRenderDispatcher.cameraOrientation());
+        poseStack.mulPose(Axis.XP.rotation(lerpedAge));
 
-        // render yoyo block
-        matrices.push();
-
-        matrices.translate(0, .15, 0);
-        matrices.multiply(dispatcher.getRotation());
-//        matrices.multiply(Vector3f.POSITIVE_Y.getDegreesQuaternion(90));
-        matrices.multiply(RotationAxis.POSITIVE_X.rotation(lerpedAge));
-
-        BakedModel model = MinecraftClient.getInstance().getBakedModelManager().getModel(ITEM_TO_MODEL.get(yoyo.getStack().getItem()));
-
-        if(model != null) {
-            MatrixStack.Entry entry = matrices.peek();
-            VertexConsumer consumer = vertexConsumers.getBuffer(RenderLayer.getSolid());
-            model.getQuads(null, null, yoyo.getWorld().random).forEach(quad -> {
-                consumer.quad(entry, quad, 1.0f, 1.0f, 1.0f, light, OverlayTexture.DEFAULT_UV);
-            });
+        BakedModel model = Minecraft.getInstance().getModelManager().getModel(ITEM_TO_MODEL.get(yoyo.getStack().getItem()));
+        if (model != null) {
+            PoseStack.Pose pose = poseStack.last();
+            VertexConsumer consumer = buffer.getBuffer(RenderType.solid());
+            model.getQuads(null, null, yoyo.level().random).forEach(quad ->
+                    consumer.putBulkData(pose, quad, 1.0F, 1.0F, 1.0F, packedLight, OverlayTexture.NO_OVERLAY));
         }
+        poseStack.popPose();
 
-        matrices.pop();
-
-        // render string
         Optional<UUID> owner = yoyo.getOwner();
-
-        if(owner.isPresent()) {
-            PlayerEntity player = yoyo.getWorld().getPlayerByUuid(owner.get());
-
+        if (owner.isPresent()) {
+            Player player = yoyo.level().getPlayerByUUID(owner.get());
             if (player != null) {
-                renderString(yoyo, tickDelta, matrices, vertexConsumers, player);
+                renderString(yoyo, partialTick, poseStack, buffer, player);
             }
         }
 
-        matrices.pop();
+        poseStack.popPose();
     }
 
-    private <E extends Entity> void renderString(Entity player, float delta, MatrixStack matrixStack, VertexConsumerProvider vertexConsumerProvider, Entity yoyo) {
-        matrixStack.push();
-        Vec3d lerpedYoyoPosition = yoyo.getLerpedPos(delta);
-        double d = 0;
-        Vec3d lerpedPlayerPosition = player.getLerpedPos(delta);
-        double e = Math.cos(d) * lerpedPlayerPosition.z + Math.sin(d) * lerpedPlayerPosition.x;
-        double g = Math.sin(d) * lerpedPlayerPosition.z - Math.cos(d) * lerpedPlayerPosition.x;
-        double h = MathHelper.lerp(delta, player.prevX, player.getX()) + e;
-        double i = MathHelper.lerp(delta, player.prevY, player.getY()) + lerpedPlayerPosition.y;
-        double j = MathHelper.lerp(delta, player.prevZ, player.getZ()) + g;
-        matrixStack.translate(e, lerpedPlayerPosition.y, g);
-        float k = (float)(lerpedYoyoPosition.x - h);
-        float l = (float)(lerpedYoyoPosition.y - i);
-        float m = (float)(lerpedYoyoPosition.z - j);
-        float n = 0.025F;
-        VertexConsumer vertexConsumer = vertexConsumerProvider.getBuffer(RenderLayer.getLeash());
-        Matrix4f matrix4f = matrixStack.peek().getPositionMatrix();
-        double o = MathHelper.fastInverseSqrt(k * k + m * m) * 0.025F / 2.0F;
+    private void renderString(Entity yoyo, float partialTick, PoseStack poseStack,
+                              MultiBufferSource buffer, Entity player) {
+        poseStack.pushPose();
+        Vec3Accessor positions = new Vec3Accessor(yoyo.getPosition(partialTick), player.getPosition(partialTick));
+        double e = positions.player().z;
+        double g = -positions.player().x;
+        double h = Mth.lerp(partialTick, player.xOld, player.getX()) + e;
+        double i = Mth.lerp(partialTick, player.yOld, player.getY()) + positions.player().y;
+        double j = Mth.lerp(partialTick, player.zOld, player.getZ()) + g;
+        poseStack.translate(e, positions.player().y, g);
+        float k = (float) (positions.yoyo().x - h);
+        float l = (float) (positions.yoyo().y - i);
+        float m = (float) (positions.yoyo().z - j);
+        VertexConsumer consumer = buffer.getBuffer(RenderType.leash());
+        Matrix4f matrix = poseStack.last().pose();
+        double o = Mth.fastInvSqrt(k * k + m * m) * 0.025F / 2.0F;
         double p = m * o;
         double q = k * o;
-        BlockPos blockPos = BlockPos.ofFloored(player.getCameraPosVec(delta));
-        BlockPos blockPos2 = BlockPos.ofFloored(yoyo.getCameraPosVec(delta));
-        int r = getYoyoBlockLight(player, blockPos);
-        int s = getYoyoBlockLight(yoyo, blockPos2);
-        int t = player.getWorld().getLightLevel(LightType.SKY, blockPos);
-        int u = player.getWorld().getLightLevel(LightType.SKY, blockPos2);
-        renderSide(vertexConsumer, matrix4f, k, l, m, r, s, t, u, 0.025F, 0.025F, p, q);
-        renderSide(vertexConsumer, matrix4f, k, l, m, r, s, t, u, 0.025F, 0.0F, p, q);
-        matrixStack.pop();
+        BlockPos playerPos = BlockPos.containing(player.getEyePosition(partialTick));
+        BlockPos yoyoPos = BlockPos.containing(yoyo.getEyePosition(partialTick));
+        int r = getYoyoBlockLight(player, playerPos);
+        int s = getYoyoBlockLight(yoyo, yoyoPos);
+        int t = player.level().getBrightness(LightLayer.SKY, playerPos);
+        int u = yoyo.level().getBrightness(LightLayer.SKY, yoyoPos);
+        renderSide(consumer, matrix, k, l, m, r, s, t, u, 0.025F, 0.025F, p, q);
+        renderSide(consumer, matrix, k, l, m, r, s, t, u, 0.025F, 0.0F, p, q);
+        poseStack.popPose();
     }
 
-    public static void renderSide(VertexConsumer vertexConsumer, Matrix4f matrix4f, float f, float g, float h, int i, int j, int k, int l, float m, float n, double o, double p) {
-        for(int r = 0; r < 24; ++r) {
-            float s = (float)r / 23.0F;
-            int t = (int)MathHelper.lerp(s, (float)i, (float)j);
-            int u = (int)MathHelper.lerp(s, (float)k, (float)l);
-            int v = LightmapTextureManager.pack(t, u);
-            addVertexPair(vertexConsumer, matrix4f, v, f, g, h, m, n, 24, r, false, o, p);
-            addVertexPair(vertexConsumer, matrix4f, v, f, g, h, m, n, 24, r + 1, true, o, p);
+    public static void renderSide(VertexConsumer consumer, Matrix4f matrix, float x, float y, float z,
+                                  int blockLightStart, int blockLightEnd, int skyLightStart, int skyLightEnd,
+                                  float width, float offset, double sideX, double sideZ) {
+        for (int index = 0; index < 24; ++index) {
+            float progress = (float) index / 23.0F;
+            int blockLight = (int) Mth.lerp(progress, (float) blockLightStart, (float) blockLightEnd);
+            int skyLight = (int) Mth.lerp(progress, (float) skyLightStart, (float) skyLightEnd);
+            int light = LightTexture.pack(blockLight, skyLight);
+            addVertexPair(consumer, matrix, light, x, y, z, width, offset, 24, index, false, sideX, sideZ);
+            addVertexPair(consumer, matrix, light, x, y, z, width, offset, 24, index + 1, true, sideX, sideZ);
         }
-
     }
 
-    public static void addVertexPair(VertexConsumer vertexConsumer, Matrix4f matrix4f, int i, float f, float g, float h, float j, float k, int l, int m, boolean bl, double n, double o) {
-        float p = 0.5F;
-        float q = 0.4F;
-        float r = 0.3F;
-        if (m % 2 == 0) {
-            p *= 0.7F;
-            q *= 0.7F;
-            r *= 0.7F;
+    public static void addVertexPair(VertexConsumer consumer, Matrix4f matrix, int light,
+                                     float x, float y, float z, float width, float offset,
+                                     int segmentCount, int segment, boolean second,
+                                     double sideX, double sideZ) {
+        float red = 0.5F;
+        float green = 0.4F;
+        float blue = 0.3F;
+        if (segment % 2 == 0) {
+            red *= 0.7F;
+            green *= 0.7F;
+            blue *= 0.7F;
         }
 
-        float s = (float)m / (float)l;
-        float t = f * s;
-        float u = g > 0.0F ? g * s * s : g - g * (1.0F - s) * (1.0F - s);
-        float v = h * s;
-        if (!bl) {
-            vertexConsumer.vertex(matrix4f, (float) (t + n), u + j - k, (float) (v - o)).color(1.0f, 1.0f, 1.0f, 1.0F).light(i).next();
+        float progress = (float) segment / segmentCount;
+        float px = x * progress;
+        float py = y > 0.0F ? y * progress * progress : y - y * (1.0F - progress) * (1.0F - progress);
+        float pz = z * progress;
+        if (!second) {
+            vertex(consumer, matrix, light, px + (float) sideX, py + offset - (float) sideZ, pz - (float) sideZ, red, green, blue);
         }
-
-        vertexConsumer.vertex(matrix4f, (float) (t - n), u + k, (float) (v + o)).color(1.0f, 1.0f, 1.0f, 1.0F).light(i).next();
-        if (bl) {
-            vertexConsumer.vertex(matrix4f, (float) (t + n), u + j - k, (float) (v - o)).color(1.0f, 1.0f, 1.0f, 1.0F).light(i).next();
+        vertex(consumer, matrix, light, px - (float) sideX, py + (float) sideZ, pz + (float) sideZ, red, green, blue);
+        if (second) {
+            vertex(consumer, matrix, light, px + (float) sideX, py + offset - (float) sideZ, pz - (float) sideZ, red, green, blue);
         }
-
     }
 
-    public int getYoyoBlockLight(Entity entity, BlockPos blockPos) {
-        return entity.isOnFire() ? 15 : entity.getWorld().getLightLevel(LightType.BLOCK, blockPos);
+    private static void vertex(VertexConsumer consumer, Matrix4f matrix, int light,
+                               float x, float y, float z, float red, float green, float blue) {
+        consumer.vertex(matrix, x, y, z).color(red, green, blue, 1.0F).uv2(light).endVertex();
+    }
+
+    private static int getYoyoBlockLight(Entity entity, BlockPos blockPos) {
+        return entity.isOnFire() ? 15 : entity.level().getBrightness(LightLayer.BLOCK, blockPos);
     }
 
     @Override
-    public Identifier getTexture(YoyoEntity entity) {
-        return null;
+    public ResourceLocation getTextureLocation(YoyoEntity entity) {
+        return net.minecraft.client.renderer.texture.TextureAtlas.LOCATION_BLOCKS;
+    }
+
+    private record Vec3Accessor(net.minecraft.world.phys.Vec3 yoyo, net.minecraft.world.phys.Vec3 player) {
     }
 }

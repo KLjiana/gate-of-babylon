@@ -1,23 +1,26 @@
 package draylar.gateofbabylon.registry;
 
 import draylar.gateofbabylon.GateOfBabylon;
-import net.minecraft.registry.Registries;
-import net.minecraft.registry.Registry;
-import net.minecraft.sound.SoundEvent;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.sounds.SoundEvent;
+import net.minecraftforge.registries.DeferredRegister;
+import net.minecraftforge.registries.ForgeRegistries;
 
-public class GOBSounds {
+public final class GOBSounds {
 
-    public static final SoundEvent KATANA_SWOOP = register("katana_swoop", SoundEvent.of(GateOfBabylon.id("katana_swoop")));
+    public static final DeferredRegister<SoundEvent> SOUND_EVENTS = DeferredRegister.create(ForgeRegistries.SOUND_EVENTS, GateOfBabylon.MODID);
 
-    public static SoundEvent register(String name, SoundEvent sound) {
-        return Registry.register(Registries.SOUND_EVENT, GateOfBabylon.id(name), sound);
+    public static final SoundEvent KATANA_SWOOP = register("katana_swoop", SoundEvent.createVariableRangeEvent(new ResourceLocation(GateOfBabylon.MODID, "katana_swoop")));
+
+    private static SoundEvent register(String name, SoundEvent sound) {
+        SOUND_EVENTS.register(name, () -> sound);
+        return sound;
     }
 
     public static void init() {
-        // NO-OP
+        // NO-OP; referencing this class initializes the deferred entries.
     }
 
     private GOBSounds() {
-
     }
 }

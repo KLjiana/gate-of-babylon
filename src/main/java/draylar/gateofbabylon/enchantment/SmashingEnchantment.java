@@ -2,16 +2,16 @@ package draylar.gateofbabylon.enchantment;
 
 import draylar.gateofbabylon.api.ValidatingEnchantment;
 import draylar.gateofbabylon.item.WaraxeItem;
-import net.minecraft.enchantment.Enchantment;
-import net.minecraft.enchantment.EnchantmentTarget;
-import net.minecraft.enchantment.Enchantments;
-import net.minecraft.entity.EquipmentSlot;
-import net.minecraft.item.ItemStack;
+import net.minecraft.world.item.enchantment.Enchantment;
+import net.minecraft.world.item.enchantment.EnchantmentCategory;
+import net.minecraft.world.item.enchantment.Enchantments;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.item.ItemStack;
 
 public class SmashingEnchantment extends Enchantment implements ValidatingEnchantment {
 
     public SmashingEnchantment() {
-        super(Rarity.RARE, EnchantmentTarget.WEAPON, new EquipmentSlot[] { EquipmentSlot.MAINHAND });
+        super(Rarity.RARE, EnchantmentCategory.WEAPON, new EquipmentSlot[] { EquipmentSlot.MAINHAND });
     }
 
     @Override
@@ -20,12 +20,13 @@ public class SmashingEnchantment extends Enchantment implements ValidatingEnchan
     }
 
     @Override
-    public boolean canAccept(Enchantment other) {
-        return other != Enchantments.LOOTING;
+    protected boolean checkCompatibility(Enchantment other) {
+        return other != Enchantments.MOB_LOOTING;
     }
 
     @Override
-    public boolean isAcceptableItem(ItemStack stack) {
+    public boolean canEnchant(ItemStack stack) {
         return stack.getItem() instanceof WaraxeItem;
     }
 }
+
